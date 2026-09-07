@@ -1,0 +1,1 @@
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_songseol_excluded boolean NOT NULL DEFAULT false;

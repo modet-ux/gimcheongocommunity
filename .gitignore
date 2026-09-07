@@ -1,0 +1,29 @@
+# dependencies and build output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+
+# local environment and credentials
+.env
+.env.*
+!.env.example
+!**/.env.example
+server/.env
+server/.env.*
+!server/.env.example
+
+# runtime uploads and local data
+uploads/
+server/uploads/
+*.log
+
+# local/editor/OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# test/cache files
+coverage/
+*.tsbuildinfo
