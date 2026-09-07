@@ -3,6 +3,7 @@ import { AppError } from "../lib/errors.js";
 import sharp from "sharp";
 import fs from "fs";
 import path from "path";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 interface UploadResult {
   id: string;
@@ -69,7 +70,7 @@ export async function uploadImage(
     throw new AppError(500, "이미지 저장에 실패했습니다.");
   }
 
-  const finalUrl = `${process.env.R2_ENDPOINT}/cps2/${r2Key}`;
+  const finalUrl = uploadUrl;
 
   // 6. DB 저장용 메타데이터 생성
   const id = crypto.randomUUID();
@@ -89,29 +90,17 @@ async function uploadToR2(
   key: string,
   options: { contentType: string },
 ): Promise<string | null> {
-  // @aws-sdk/client-s3 사용 예시 (주석)
-  /*
-  import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-
-  const r2 = new S3Client({
-    region: "auto",
-    endpoint: process.env.R2_ENDPOINT!,
-    credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    },
-  });
-
-  await r2.send(new PutObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME!,
-    Key: key,
-    Body: buffer,
-    ContentType: options.contentType,
-    CacheControl: "public, max-age=31536000",
-  }));
-
-  return `https://${process.env.R2_BUCKET_NAME}.${process.env.R2_ENDPOINT!.replace("https://", "")}/${key}`;
-  */
+  if (process.env.R2_UPLOAD_ENABLED === "true") {
+    const endpoint = process.env.R2_ENDPOINT;
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    const bucket = process.env.R2_BUCKET_NAME;
+    const publicUrl = process.env.R2_PUBLIC_URL;
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket || !publicUrl) return null;
+    const r2 = new S3Client({ region: "auto", endpoint, credentials: { accessKeyId, secretAccessKey } });
+    await r2.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: buffer, ContentType: options.contentType, CacheControl: "public, max-age=31536000, immutable" }));
+    return `${publicUrl.replace(/\/$/, "")}/${key}`;
+  }
 
   // 개발 환경에서는 로컬 파일로 저장 (실제 R2 연결 없을 때)
   if (process.env.NODE_ENV !== "production") {
@@ -132,25 +121,16 @@ async function uploadToR2(
 
 // 이미지 삭제
 export async function deleteImage(r2Key: string): Promise<void> {
-  // R2에서 삭제
-  // @aws-sdk/client-s3 사용
-  /*
-  import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
-
-  const r2 = new S3Client({
-    region: "auto",
-    endpoint: process.env.R2_ENDPOINT!,
-    credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    },
-  });
-
-  await r2.send(new DeleteObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME!,
-    Key: r2Key,
-  }));
-  */
+  if (process.env.R2_UPLOAD_ENABLED === "true") {
+    const endpoint = process.env.R2_ENDPOINT;
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    const bucket = process.env.R2_BUCKET_NAME;
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) return;
+    const r2 = new S3Client({ region: "auto", endpoint, credentials: { accessKeyId, secretAccessKey } });
+    await r2.send(new DeleteObjectCommand({ Bucket: bucket, Key: r2Key }));
+    return;
+  }
 
   // 개발 환경에서 로컬 파일 삭제
   if (process.env.NODE_ENV !== "production") {
