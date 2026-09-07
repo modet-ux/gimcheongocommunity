@@ -15,21 +15,7 @@ services:
         generateValue: true
       - key: DATABASE_URL
         sync: false
-      - key: REDIS_URL
-        sync: false
       - key: REDIS_SESSION_STORE
-        value: "true"
-      - key: CLIENT_ORIGIN
-        sync: false
-      - key: R2_ENDPOINT
-        sync: false
-      - key: R2_ACCESS_KEY_ID
-        sync: false
-      - key: R2_SECRET_ACCESS_KEY
-        sync: false
-      - key: R2_BUCKET_NAME
-        sync: false
-      - key: R2_PUBLIC_URL
-        sync: false
+        value: "false"
       - key: R2_UPLOAD_ENABLED
-        value: "true"
+        value: "false"
