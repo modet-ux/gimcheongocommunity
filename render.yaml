@@ -6,6 +6,7 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     autoDeploy: true
+    # Neon schema initialized; redeploy with the current database
     envVars:
       - key: NODE_ENV
         value: production
