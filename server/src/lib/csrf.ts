@@ -14,12 +14,11 @@ const {
     }
     return sessionSecret;
   },
-  getSessionIdentifier: (req) => {
-    // 세션이 있으면 세션 ID 사용, 없으면 빈 문자열
-    // GET /api/csrf-token 요청 시 세션이 저장되지 않으면
-    // 발급된 csrf_token 쿠키 해시와 POST 요청 시 해시 불일치 발생 가능
-    return req.session?.id || "";
-  },
+  // Double Submit Cookie 방식은 토큰 쿠키와 요청 헤더의 쌍을
+  // 서버 비밀키로 검증하므로 세션 ID를 식별자에 포함하지 않는다.
+  // 세션 쿠키가 아직 저장되지 않은 최초 요청에서도 발급 토큰과
+  // 다음 보호 요청의 검증 기준이 동일해야 한다.
+  getSessionIdentifier: () => "",
   cookieName: "csrf_token",
   cookieOptions: {
     httpOnly: true,
