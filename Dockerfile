@@ -19,6 +19,7 @@ WORKDIR /app/server
 COPY --from=server-build /app/server/package*.json ./
 COPY --from=server-build /app/server/node_modules ./node_modules
 COPY --from=server-build /app/server/dist ./dist
+COPY --from=server-build /app/server/scripts ./scripts
 COPY --from=client-build /app/client/dist /app/client/dist
 EXPOSE 3001
-CMD ["node", "--experimental-specifier-resolution=node", "dist/index.js"]
+CMD ["sh", "-c", "node scripts/bootstrap-production.mjs && node --experimental-specifier-resolution=node dist/index.js"]

@@ -12,8 +12,10 @@ dist/
 server/.env
 server/.env.*
 !server/.env.example
+.env.production
+!.env.production.example
+backups/
 
-# runtime uploads and local data
 uploads/
 server/uploads/
 *.log
