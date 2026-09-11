@@ -314,6 +314,8 @@ router.get("/:id/profile", async (req, res, next) => {
       return;
     }
 
+    const page = Math.max(1, Number.parseInt(String(req.query.page || "1"), 10) || 1);
+    const limit = Math.min(50, Math.max(1, Number.parseInt(String(req.query.limit || "20"), 10) || 20));
     const posts = await db.query.posts.findMany({
       where: and(eq(schema.posts.authorId, userId), eq(schema.posts.isAnonymous, false)),
       columns: {
@@ -327,10 +329,11 @@ router.get("/:id/profile", async (req, res, next) => {
         createdAt: true,
       },
       orderBy: (post, { desc }) => [desc(post.createdAt)],
-      limit: 50,
+      limit,
+      offset: (page - 1) * limit,
     });
 
-    res.json({ profile, posts });
+    res.json({ profile, posts, pagination: { page, limit, hasMore: posts.length === limit } });
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: true, message: "잘못된 프로필 주소입니다." });

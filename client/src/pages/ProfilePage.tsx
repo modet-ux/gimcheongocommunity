@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchCsrfToken } from "../context/AuthContext";
@@ -21,6 +21,10 @@ export function ProfilePage() {
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [myPosts, setMyPosts] = useState<any[]>([]);
+  const [postsPage, setPostsPage] = useState(1);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
+  const postsSentinelRef = useRef<HTMLDivElement | null>(null);
   const [hiddenPostIds, setHiddenPostIds] = useState<string[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -49,11 +53,37 @@ export function ProfilePage() {
     if (!user?.id) return;
     const hidden = JSON.parse(localStorage.getItem(`hidden-post-history:${user.id}`) || "[]");
     setHiddenPostIds(hidden);
-    fetch(`/api/posts?userId=${user.id}&limit=50`, { credentials: "include" })
+    setMyPosts([]); setPostsPage(1); setHasMorePosts(false);
+    fetch(`/api/posts?userId=${user.id}&page=1&limit=20`, { credentials: "include" })
       .then((res) => res.ok ? res.json() : Promise.reject(new Error("게시글을 불러오지 못했습니다.")))
-      .then((data) => setMyPosts((data.posts || []).filter((post: any) => !post.isAnonymous && !hidden.includes(post.id))))
+      .then((data) => {
+        setMyPosts((data.posts || []).filter((post: any) => !post.isAnonymous && !hidden.includes(post.id)));
+        setHasMorePosts((data.posts || []).length === 20);
+      })
       .catch((error) => show("error", error.message));
   }, [user?.id]);
+
+  useEffect(() => {
+    const sentinel = postsSentinelRef.current;
+    if (!sentinel || !hasMorePosts || loadingMorePosts || !user?.id) return;
+    const observer = new IntersectionObserver(async ([entry]) => {
+      if (!entry.isIntersecting) return;
+      setLoadingMorePosts(true);
+      const nextPage = postsPage + 1;
+      try {
+        const res = await fetch(`/api/posts?userId=${user.id}&page=${nextPage}&limit=20`, { credentials: "include" });
+        if (!res.ok) throw new Error("게시글을 더 불러오지 못했습니다.");
+        const data = await res.json();
+        const nextPosts = (data.posts || []).filter((post: any) => !post.isAnonymous && !hiddenPostIds.includes(post.id));
+        setMyPosts((current) => [...current, ...nextPosts]);
+        setPostsPage(nextPage);
+        setHasMorePosts((data.posts || []).length === 20);
+      } catch (error: any) { show("error", error.message); }
+      finally { setLoadingMorePosts(false); }
+    }, { rootMargin: "240px" });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [user?.id, postsPage, hasMorePosts, loadingMorePosts, hiddenPostIds]);
 
   const handlePostDelete = async (postId: string) => {
     if (!window.confirm("이 게시글을 삭제하시겠습니까?")) return;
@@ -234,7 +264,7 @@ export function ProfilePage() {
           <div className="mt-8">
             <h2 className="text-lg font-bold text-gray-900 mb-4">내 게시글 ({myPosts.length})</h2>
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-              {myPosts.length === 0 ? <div className="p-8 text-center text-gray-400 text-sm"><p className="mb-2">게시글이 아직 없습니다.</p><button onClick={() => navigate("/write")} className="text-primary-600 hover:text-primary-700 font-medium">첫 게시글 작성하기 →</button></div> : <div className="divide-y divide-gray-100">{myPosts.map((post) => <div key={post.id} className="p-4 flex items-center justify-between gap-3"><button type="button" onClick={() => navigate(`/post/${post.id}`)} className="text-left min-w-0"><h3 className="font-medium text-gray-900 truncate">{post.title}</h3><p className="text-xs text-gray-400 mt-1">좋아요 {post.likeCount} · 조회수 {post.viewCount} · 댓글 {post.commentCount}</p></button><button type="button" onClick={() => handlePostDelete(post.id)} className="shrink-0 text-sm text-red-500 hover:text-red-700">삭제</button></div>)}</div>}
+              {myPosts.length === 0 ? <div className="p-8 text-center text-gray-400 text-sm"><p className="mb-2">게시글이 아직 없습니다.</p><button onClick={() => navigate("/write")} className="text-primary-600 hover:text-primary-700 font-medium">첫 게시글 작성하기 →</button></div> : <div className="divide-y divide-gray-100">{myPosts.map((post) => <div key={post.id} className="p-4 flex items-center justify-between gap-3"><button type="button" onClick={() => navigate(`/post/${post.id}`)} className="text-left min-w-0"><h3 className="font-medium text-gray-900 truncate">{post.title}</h3><p className="text-xs text-gray-400 mt-1">좋아요 {post.likeCount} · 조회수 {post.viewCount} · 댓글 {post.commentCount}</p></button><button type="button" onClick={() => handlePostDelete(post.id)} className="shrink-0 text-sm text-red-500 hover:text-red-700">삭제</button></div>)}<div ref={postsSentinelRef} className="h-8 text-center text-xs text-gray-400 py-2">{loadingMorePosts ? "더 불러오는 중..." : hasMorePosts ? "" : ""}</div></div>}
             </div>
           </div>
         )}
